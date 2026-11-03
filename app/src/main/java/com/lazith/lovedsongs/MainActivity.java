@@ -67,6 +67,9 @@ public class MainActivity extends Activity {
     private LinearLayout bar;
     private FrameLayout topBar;
     private TextView topTitle, subtitle, emptyView;
+    private FrameLayout heroBox;
+    private boolean heroHeld;
+    private android.animation.ValueAnimator beat;
     private ImageView heroCover, avatar, heroPlay, barPlay;
     private ToggleBtn heroShuffle, barShuffle, barRepeat;
     private SeekView seek;
@@ -155,6 +158,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         ui.removeCallbacksAndMessages(null);
+        if (beat != null) beat.cancel();
         io.shutdownNow();
         worker.shutdown();
         super.onDestroy();
@@ -239,9 +243,28 @@ public class MainActivity extends Activity {
         heroCover.setScaleType(ImageView.ScaleType.CENTER_CROP);
         Ui.roundClip(heroCover, 4);
         heroCover.setElevation(Ui.u(10));
+        heroBox = new FrameLayout(this);
+        heroBox.setClipChildren(false);
+        heroBox.addView(heroCover, new FrameLayout.LayoutParams(-1, -1));
+        heroBox.setOnTouchListener(new View.OnTouchListener() {
+            @Override public boolean onTouch(View v, android.view.MotionEvent e) {
+                int a = e.getActionMasked();
+                if (a == android.view.MotionEvent.ACTION_DOWN) {
+                    heroHeld = true;
+                    heroBox.animate().cancel();
+                    heroBox.animate().scaleX(1.16f).scaleY(1.16f).setDuration(140).setInterpolator(new DecelerateInterpolator()).start();
+                    return true;
+                } else if (a == android.view.MotionEvent.ACTION_UP || a == android.view.MotionEvent.ACTION_CANCEL) {
+                    heroHeld = false;
+                    heroBox.animate().scaleX(1f).scaleY(1f).setDuration(420).setInterpolator(new OvershootInterpolator(3f)).start();
+                    return true;
+                }
+                return true;
+            }
+        });
         LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(Ui.u(128), Ui.u(128));
         cl.rightMargin = Ui.u(16);
-        hero.addView(heroCover, cl);
+        hero.addView(heroBox, cl);
 
         LinearLayout info = new LinearLayout(this);
         info.setOrientation(LinearLayout.VERTICAL);
@@ -503,7 +526,7 @@ public class MainActivity extends Activity {
             badge.setVisibility(s.explicit ? View.VISIBLE : View.GONE);
             dur.setText(s.duration > 0 ? Ui.clock(s.duration * 1000) : "");
             if (cur) { num.setText(""); eq.setVisibility(View.VISIBLE); eq.setActive(pl); }
-            else { num.setText(String.valueOf(songs.size() - pos)); eq.setActive(false); eq.setVisibility(View.GONE); }
+            else { num.setText(String.valueOf(pos + 1)); eq.setActive(false); eq.setVisibility(View.GONE); }
             loadThumb(thumb, s, Ui.u(42));
             if (!entered.contains(s.id)) {
                 entered.add(s.id);
@@ -597,6 +620,7 @@ public class MainActivity extends Activity {
             shownId = id;
             shownPlaying = pl;
             adapter.notifyDataSetChanged();
+            setBeat(pl);
             swapIcon(heroPlay, pl ? R.drawable.ic_pause : R.drawable.ic_play);
             swapIcon(barPlay, pl ? R.drawable.ic_pause : R.drawable.ic_play);
             showBar(!id.isEmpty() && find(id) != null, hadBar);
@@ -617,6 +641,36 @@ public class MainActivity extends Activity {
             }
             String r = Ui.clock(d);
             if (!r.equals(shownRight)) { shownRight = r; tRight.setText(r); }
+        }
+    }
+
+    private static float bump(float t, float start, float len) {
+        if (t < start || t > start + len) return 0f;
+        double x = Math.sin(Math.PI * (t - start) / len);
+        return (float) (x * x);
+    }
+
+    /** Makes the big heart beat (lub-dub) while music plays. */
+    private void setBeat(boolean on) {
+        if (on && beat == null) {
+            beat = android.animation.ValueAnimator.ofFloat(0f, 1f);
+            beat.setDuration(860);
+            beat.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+            beat.setInterpolator(new android.view.animation.LinearInterpolator());
+            beat.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+                @Override public void onAnimationUpdate(android.animation.ValueAnimator a) {
+                    if (heroHeld || heroBox == null) return;
+                    float t = (Float) a.getAnimatedValue();
+                    float k = 1f + 0.07f * bump(t, 0f, 0.16f) + 0.045f * bump(t, 0.22f, 0.14f);
+                    heroBox.setScaleX(k);
+                    heroBox.setScaleY(k);
+                }
+            });
+            beat.start();
+        } else if (!on && beat != null) {
+            beat.cancel();
+            beat = null;
+            if (!heroHeld) heroBox.animate().scaleX(1f).scaleY(1f).setDuration(220).start();
         }
     }
 
