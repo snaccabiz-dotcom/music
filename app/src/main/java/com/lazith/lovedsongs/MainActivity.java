@@ -182,6 +182,8 @@ public class MainActivity extends Activity {
         list.setFooterDividersEnabled(false);
         list.setClipToPadding(false);
         list.setCacheColorHint(Color.TRANSPARENT);
+        list.setScrollingCacheEnabled(false);
+        list.setAnimationCacheEnabled(false);
         list.setPadding(0, 0, 0, Ui.u(14));
         list.addHeaderView(buildHeader(), null, false);
         FrameLayout foot = new FrameLayout(this);
@@ -248,7 +250,7 @@ public class MainActivity extends Activity {
         heroCover = new View(this);
         heroCover.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{0xFF450AF5, 0xFFC4EFD9}));
         Ui.roundClip(heroCover, 4);
-        heroCover.setElevation(Ui.u(10));
+        heroCover.setElevation(Ui.u(8));
         heroHeart = new ImageView(this);
         heroHeart.setImageResource(R.drawable.ic_heart);
         heroHeart.setColorFilter(Ui.WHITE);
@@ -256,7 +258,7 @@ public class MainActivity extends Activity {
         heroBox.setClipChildren(false);
         heroBox.addView(heroCover, new FrameLayout.LayoutParams(-1, -1));
         heroBox.addView(heroHeart, new FrameLayout.LayoutParams(Ui.u(88), Ui.u(88), Gravity.CENTER));
-        heroBox.setElevation(Ui.u(10));
+        heroHeart.setElevation(Ui.u(9));
         heroBox.setOnTouchListener(new View.OnTouchListener() {
             @Override public boolean onTouch(View v, android.view.MotionEvent e) {
                 int a = e.getActionMasked();
@@ -775,6 +777,18 @@ public class MainActivity extends Activity {
             PlaybackService.run(new PlaybackService.Cmd() { public void go(PlaybackService s) { s.setQueue(csv); } });
         }
         shownId = null;   // refresh bar / rows
+        final List<Song> pre = l;
+        worker.execute(new Runnable() {
+            @Override public void run() {
+                for (Song sg : pre) {
+                    if (sg.cover == null) continue;
+                    String key = sg.id + ":" + sg.updatedAt;
+                    if (cache.get(key) != null) continue;
+                    Bitmap t = Library.thumb(sg, Ui.u(76));
+                    if (t != null) cache.put(key, t);
+                }
+            }
+        });
     }
 
     private void playSong(final String id) {
