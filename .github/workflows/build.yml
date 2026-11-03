@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -29,3 +32,11 @@ jobs:
         with:
           name: LovedSongs-apk
           path: LovedSongs.apk
+
+      - name: Publish a direct download link
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          name: Music app (latest)
+          files: LovedSongs.apk
+          make_latest: true
