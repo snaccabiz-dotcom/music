@@ -84,17 +84,66 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        File cf = new File(getFilesDir(), "crash.txt");
+        if (cf.exists()) {
+            String txt = "";
+            try {
+                InputStream in = new java.io.FileInputStream(cf);
+                byte[] b = new byte[(int) Math.min(cf.length(), 5000)];
+                int n = in.read(b);
+                in.close();
+                txt = new String(b, 0, Math.max(0, n), "UTF-8");
+            } catch (Exception ignored) { }
+            cf.delete();
+            showPlain("Last time the app closed with this error:", txt);
+            return;
+        }
+        try {
+            start();
+        } catch (Throwable t) {
+            java.io.StringWriter sw = new java.io.StringWriter();
+            t.printStackTrace(new java.io.PrintWriter(sw));
+            showPlain("Startup error:", sw.toString());
+        }
+    }
+
+    /** Plain error screen that uses no custom code, so it always shows. */
+    private void showPlain(String head, String body) {
+        LinearLayout l = new LinearLayout(this);
+        l.setOrientation(LinearLayout.VERTICAL);
+        l.setBackgroundColor(Color.BLACK);
+        l.setPadding(40, 80, 40, 40);
+        TextView h = new TextView(this);
+        h.setText(head + "\n(please send a screenshot of this)");
+        h.setTextColor(Color.WHITE);
+        h.setTextSize(16);
+        l.addView(h);
+        TextView t = new TextView(this);
+        t.setText(body);
+        t.setTextColor(0xFFB3B3B3);
+        t.setTextSize(11);
+        t.setTypeface(android.graphics.Typeface.MONOSPACE);
+        ScrollView sv = new ScrollView(this);
+        sv.addView(t);
+        l.addView(sv, new LinearLayout.LayoutParams(-1, 0, 1f));
+        android.widget.Button bt = new android.widget.Button(this);
+        bt.setText("Continue");
+        bt.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { recreate(); } });
+        l.addView(bt);
+        setContentView(l);
+    }
+
+    private void start() throws Exception {
         Ui.init(this);
         getWindow().setStatusBarColor(Color.BLACK);
         getWindow().setNavigationBarColor(Color.BLACK);
-        try { Core.init(this); } catch (Exception e) { finish(); return; }
+        Core.init(this);
         startService(new Intent(this, PlaybackService.class));
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 11);
         }
         build();
         reload();
-        showCrashIfAny();
         if (!getSharedPreferences("loved", MODE_PRIVATE).getBoolean("welcomed", false)) {
             ui.postDelayed(new Runnable() { @Override public void run() { if (!isFinishing()) welcome(); } }, 350);
         }
@@ -112,32 +161,6 @@ public class MainActivity extends Activity {
     }
 
     @Override public void onBackPressed() { moveTaskToBack(true); }
-
-    private void showCrashIfAny() {
-        File f = new File(getFilesDir(), "crash.txt");
-        if (!f.exists()) return;
-        String s = "";
-        try {
-            InputStream in = new java.io.FileInputStream(f);
-            byte[] b = new byte[(int) Math.min(f.length(), 6000)];
-            int n = in.read(b);
-            in.close();
-            s = new String(b, 0, Math.max(0, n), "UTF-8");
-        } catch (Exception ignored) { }
-        f.delete();
-        LinearLayout c = card();
-        c.addView(Ui.text(this, "The app closed unexpectedly", 18, 800, Ui.WHITE));
-        TextView t = Ui.text(this, s, 10, 400, Ui.GRAY);
-        t.setPadding(0, Ui.u(10), 0, Ui.u(10));
-        ScrollView sv = new ScrollView(this);
-        sv.addView(t);
-        c.addView(sv, new LinearLayout.LayoutParams(-1, Ui.u(200)));
-        c.addView(Ui.text(this, "Please send a screenshot of this so it can be fixed.", 12, 500, Ui.GRAY));
-        final AnimDialog[] d = new AnimDialog[1];
-        c.addView(buttons(null, "OK", new Runnable() { public void run() { d[0].dismiss(); } }, null));
-        d[0] = new AnimDialog(this, c, false, dialogWidth());
-        d[0].show();
-    }
 
     // ================================================================== layout
     private void build() {

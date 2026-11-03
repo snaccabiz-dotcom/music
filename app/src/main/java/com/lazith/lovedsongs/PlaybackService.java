@@ -421,6 +421,8 @@ public class PlaybackService extends Service {
                 .setLargeIcon(art)
                 .setContentIntent(PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT))
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setColor(0xFF000000)
+                .setColorized(true)
                 .setCategory(Notification.CATEGORY_TRANSPORT)
                 .setOnlyAlertOnce(true)
                 .setShowWhen(false)
