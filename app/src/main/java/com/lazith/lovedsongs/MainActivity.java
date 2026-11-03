@@ -555,6 +555,7 @@ public class MainActivity extends Activity {
     }
 
     private void onScrolled(int first) {
+        if (topBar == null || topTitle == null || heroCover == null || list == null) return;
         float top = 0f;
         if (first == 0 && list.getChildCount() > 0) top = list.getChildAt(0).getTop();
         else if (first > 0) top = -heroHeight * 2f;
