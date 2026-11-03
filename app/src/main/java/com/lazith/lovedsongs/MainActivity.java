@@ -68,9 +68,11 @@ public class MainActivity extends Activity {
     private FrameLayout topBar;
     private TextView topTitle, subtitle, emptyView;
     private FrameLayout heroBox;
-    private boolean heroHeld;
+    private boolean heroHeld, scrolling, scrollDown = true;
+    private int lastEnd;
     private android.animation.ValueAnimator beat;
-    private ImageView heroCover, avatar, heroPlay, barPlay;
+    private View heroCover;
+    private ImageView heroHeart, avatar, heroPlay, barPlay;
     private ToggleBtn heroShuffle, barShuffle, barRepeat;
     private SeekView seek;
     private TextView tLeft, tRight;
@@ -197,8 +199,13 @@ public class MainActivity extends Activity {
             }
         });
         list.setOnScrollListener(new AbsListView.OnScrollListener() {
-            @Override public void onScrollStateChanged(AbsListView v, int s) { }
-            @Override public void onScroll(AbsListView v, int first, int vis, int total) { onScrolled(first); }
+            @Override public void onScrollStateChanged(AbsListView v, int st) { scrolling = st != AbsListView.OnScrollListener.SCROLL_STATE_IDLE; }
+            @Override public void onScroll(AbsListView v, int first, int vis, int total) {
+                int end = first + vis;
+                if (end > lastEnd) scrollDown = true; else if (end < lastEnd) scrollDown = false;
+                lastEnd = end;
+                onScrolled(first);
+            }
         });
         root.addView(list, new FrameLayout.LayoutParams(-1, -1));
 
@@ -238,25 +245,29 @@ public class MainActivity extends Activity {
         hero.setBackground(g);
         hero.setPadding(Ui.u(16), Ui.u(60), Ui.u(16), Ui.u(20));
 
-        heroCover = new ImageView(this);
-        heroCover.setImageResource(R.drawable.default_art);
-        heroCover.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        heroCover = new View(this);
+        heroCover.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{0xFF450AF5, 0xFFC4EFD9}));
         Ui.roundClip(heroCover, 4);
         heroCover.setElevation(Ui.u(10));
+        heroHeart = new ImageView(this);
+        heroHeart.setImageResource(R.drawable.ic_heart);
+        heroHeart.setColorFilter(Ui.WHITE);
         heroBox = new FrameLayout(this);
         heroBox.setClipChildren(false);
         heroBox.addView(heroCover, new FrameLayout.LayoutParams(-1, -1));
+        heroBox.addView(heroHeart, new FrameLayout.LayoutParams(Ui.u(88), Ui.u(88), Gravity.CENTER));
+        heroBox.setElevation(Ui.u(10));
         heroBox.setOnTouchListener(new View.OnTouchListener() {
             @Override public boolean onTouch(View v, android.view.MotionEvent e) {
                 int a = e.getActionMasked();
                 if (a == android.view.MotionEvent.ACTION_DOWN) {
                     heroHeld = true;
-                    heroBox.animate().cancel();
-                    heroBox.animate().scaleX(1.16f).scaleY(1.16f).setDuration(140).setInterpolator(new DecelerateInterpolator()).start();
+                    heroHeart.animate().cancel();
+                    heroHeart.animate().scaleX(1.3f).scaleY(1.3f).setDuration(140).setInterpolator(new DecelerateInterpolator()).start();
                     return true;
                 } else if (a == android.view.MotionEvent.ACTION_UP || a == android.view.MotionEvent.ACTION_CANCEL) {
                     heroHeld = false;
-                    heroBox.animate().scaleX(1f).scaleY(1f).setDuration(420).setInterpolator(new OvershootInterpolator(3f)).start();
+                    heroHeart.animate().scaleX(1f).scaleY(1f).setDuration(420).setInterpolator(new OvershootInterpolator(3f)).start();
                     return true;
                 }
                 return true;
@@ -541,6 +552,15 @@ public class MainActivity extends Activity {
             }
             if (android.os.SystemClock.uptimeMillis() < animUntil && getAlpha() < 1f) return;
             animate().cancel();
+            if (scrolling && scrollDown) {
+                animUntil = android.os.SystemClock.uptimeMillis() + 360;
+                setAlpha(0f);
+                setTranslationY(Ui.u(46));
+                animate().alpha(1f).translationY(0f).setStartDelay(0).setDuration(340)
+                        .setInterpolator(new DecelerateInterpolator(2.2f)).start();
+                return;
+            }
+            animate().setStartDelay(0);
             setAlpha(1f);
             setTranslationY(0f);
         }
@@ -578,7 +598,7 @@ public class MainActivity extends Activity {
     }
 
     private void onScrolled(int first) {
-        if (topBar == null || topTitle == null || heroCover == null || list == null) return;
+        if (topBar == null || topTitle == null || heroBox == null || list == null) return;
         float top = 0f;
         if (first == 0 && list.getChildCount() > 0) top = list.getChildAt(0).getTop();
         else if (first > 0) top = -heroHeight * 2f;
@@ -587,10 +607,10 @@ public class MainActivity extends Activity {
         topBar.setAlpha(a);
         topTitle.setAlpha(a);
         float f = Ui.clamp(1f - scrolled / (heroHeight * 0.75f), 0f, 1f);
-        heroCover.setAlpha(f);
-        heroCover.setScaleX(0.8f + 0.2f * f);
-        heroCover.setScaleY(0.8f + 0.2f * f);
-        heroCover.setTranslationY(scrolled * 0.35f);
+        heroBox.setAlpha(f);
+        heroBox.setScaleX(0.8f + 0.2f * f);
+        heroBox.setScaleY(0.8f + 0.2f * f);
+        heroBox.setTranslationY(scrolled * 0.35f);
     }
 
     // ================================================================== state ticker
@@ -659,18 +679,18 @@ public class MainActivity extends Activity {
             beat.setInterpolator(new android.view.animation.LinearInterpolator());
             beat.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
                 @Override public void onAnimationUpdate(android.animation.ValueAnimator a) {
-                    if (heroHeld || heroBox == null) return;
+                    if (heroHeld || heroHeart == null) return;
                     float t = (Float) a.getAnimatedValue();
                     float k = 1f + 0.07f * bump(t, 0f, 0.16f) + 0.045f * bump(t, 0.22f, 0.14f);
-                    heroBox.setScaleX(k);
-                    heroBox.setScaleY(k);
+                    heroHeart.setScaleX(k);
+                    heroHeart.setScaleY(k);
                 }
             });
             beat.start();
         } else if (!on && beat != null) {
             beat.cancel();
             beat = null;
-            if (!heroHeld) heroBox.animate().scaleX(1f).scaleY(1f).setDuration(220).start();
+            if (!heroHeld) heroHeart.animate().scaleX(1f).scaleY(1f).setDuration(220).start();
         }
     }
 
@@ -730,7 +750,9 @@ public class MainActivity extends Activity {
         loadedVersion = Core.server.version;
         worker.execute(new Runnable() {
             @Override public void run() {
-                final List<Song> l = Library.load();
+                List<Song> l0;
+                try { l0 = Library.load(); } catch (Throwable t) { return; }
+                final List<Song> l = l0;
                 ui.post(new Runnable() { @Override public void run() { applySongs(l); } });
             }
         });

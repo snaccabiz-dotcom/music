@@ -442,15 +442,12 @@ public class PlaybackService extends Service {
         updateMetadata();
         updateState();
         Notification n = buildNotification();
-        if (playing) {
-            try {
-                if (Build.VERSION.SDK_INT >= 29) startForeground(NID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
-                else startForeground(NID, n);
-            } catch (Exception e) {
-                nm.notify(NID, n);
-            }
-        } else {
-            stopForeground(Service.STOP_FOREGROUND_DETACH);
+        // Stay a foreground service the whole time a song is loaded (playing, loading the next one, or paused),
+        // so Android never stops the music between songs or with the screen off.
+        try {
+            if (Build.VERSION.SDK_INT >= 29) startForeground(NID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+            else startForeground(NID, n);
+        } catch (Exception e) {
             nm.notify(NID, n);
         }
     }
